@@ -1,7 +1,25 @@
+# 0.01
+# done:
+# - cascading menus work
+# - files open with os default apps
+#
+# todo:
+# - display edge awareness (open in correct direction - left/right, up/down)
+# - build previewer
+#   - tie in pre-written
+#   - write for human-readable (printable chars only)
+# - build openers with OS
+# - close submenu on right click/click-away/Esc
+# - make pretty with LabelFrame
+# - ignore self executable
+# - add scrollers to the menus (mouse scroll?)
+# - kbd nav?
+# - handle permission denied to folder
+
 import tkinter as tk
 import win32api
 import os
-import subprocess
+# import subprocess
 
 background_c = "#333333"
 foreground_c = "#88CCFF"
@@ -13,15 +31,18 @@ initpath = os.getcwd()
 pos = win32api.GetCursorPos()
 
 class ItemEntry(tk.Frame):
-    def __init__(self, tkp, n, t, p):
-        tk.Label.__init__(self)
-        self.name = n
-        self.type = t
-        self.path = p
-        self.tkparent = tkp
+    def __init__(self, tkparent, name, type, path, corners):
+        tkparent.overrideredirect(True)
+        print("making ItemEntry: " + name)
+        tk.Label.__init__(self, tkparent)
+        self.corners = corners
+        self.name = name
+        self.type = type
+        self.path = path
+        # self.tkparent = tkparent
         var = tk.StringVar()
         self.label = tk.Label(self, width=boxwidth, textvariable=var, background=background_c, foreground=foreground_c, justify=tk.RIGHT, anchor="e")
-        var.set(n)
+        var.set(self.name)
         self.configure(width=boxwidth, borderwidth=0, highlightthickness=0)
         self.label.pack()
 
@@ -35,23 +56,22 @@ class ItemEntry(tk.Frame):
         self.label.configure(foreground=foreground_c)
         self.label.configure(relief=tk.FLAT)
     def on_click(self, event):
+        self.label.configure(relief=tk.SUNKEN)
         if self.type == "file":
-            # preview file
-            print("preview file")
+            # preview file - future
+            # print("preview file")
+            os.startfile(self.path)
         else:
             # create cascade from dir
-            print("pop another dir window!")
-            self.cascadeTopLevel = tk.Toplevel()
-            pop_menu(self.cascadeTopLevel, self.path)
-            self.cascadeTopLevel.pack(self.tkparent)
-        self.label.configure(relief=tk.SUNKEN)
+            print("pop another dir window")
+            cascadeTopLevel = tk.Toplevel()
+            pop_menu(cascadeTopLevel, self.path, self.corners['ne'][0], self.corners['ne'][1])
 
 def pop_menu(tkparent, path, posx, posy):
+    print("making menu at " + path)
     entries = []
-    # if (isinstance(tkparent, tk.Tk)):
-    #     print("root is tk.Tk")
-    # else:
     for file_entry in (os.scandir(path=path)): # read folder contents
+        print(file_entry.name)
         if not file_entry.name.startswith('.'): # hide dotfiles
             if file_entry.is_dir():
                 entryname = file_entry.name + " >"
@@ -59,18 +79,22 @@ def pop_menu(tkparent, path, posx, posy):
             else:
                 entryname = file_entry.name
                 entrytype = "file"
-            entrypath = file_entry.path
-            tampa = ItemEntry(tkparent, entryname, entrytype, entrypath)
+            corners = {
+                'nw': (posx,posy+len(entries)*entry_height),
+                'ne': (posx+boxwidth,posy+len(entries)*entry_height),
+                # 'se': (posx+boxwidth,posy+entry_height+len(entries)*entry_height), # unnecessary?
+                # 'sw': (posx,posy+entry_height+len(entries)*entry_height)           #
+            }
+            tampa = ItemEntry(tkparent, entryname, entrytype, file_entry.path, corners)
             entries.append(tampa)
-            tampa.pack(tkparent)
+            tampa.pack()
     boxheight = len(entries)*entry_height
-    tkparent.geometry(str(boxwidth) + "x" + str(boxheight) + "+" + str(posx) + "+" + str(posy))
+    tkparent.geometry(str(boxwidth) + "x" + str(boxheight) + "+" + str(posx) + "+" + str(posy))#("%dx%d+%d+%d", %())
     tkparent.configure(bg=background_c)
 
-# Create object
 root = tk.Tk()
 pop_menu(root, initpath, pos[0], pos[1])
-# Use overrideredirect() method
+# undecorate
 # root.overrideredirect(True)
 
 # Execute tkinter
