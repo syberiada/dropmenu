@@ -1,20 +1,20 @@
-# 0.01
 # done:
 # - cascading menus work
 # - files open with os default apps
+# - close submenu on rightclick
 #
 # todo:
 # - display edge awareness (open in correct direction - left/right, up/down)
 # - build previewer
 #   - tie in pre-written
 #   - write for human-readable (printable chars only)
-# - build openers with OS
-# - close submenu on right click/click-away/Esc
 # - make pretty with LabelFrame
 # - ignore self executable
 # - add scrollers to the menus (mouse scroll?)
 # - kbd nav?
-# - handle permission denied to folder
+# - handle permission denied to folder - mitigated with try/except
+# - prevent duplicate submenus
+# - add "open folder"
 
 import tkinter as tk
 import win32api
@@ -48,19 +48,21 @@ class ItemEntry(tk.Frame):
 
         self.label.bind("<Enter>", self.on_enter)
         self.label.bind("<Leave>", self.on_leave)
-        self.label.bind("<ButtonPress>", self.on_click)
+        self.label.bind("<Button-1>", self.on_leftclick)
 
     def on_enter(self, event):
         self.label.configure(foreground=selected_c)
     def on_leave(self, enter):
         self.label.configure(foreground=foreground_c)
         self.label.configure(relief=tk.FLAT)
-    def on_click(self, event):
+    def on_leftclick(self, event):
         self.label.configure(relief=tk.SUNKEN)
         if self.type == "file":
             # preview file - future
             # print("preview file")
             os.startfile(self.path)
+            quit()
+
         else:
             # create cascade from dir
             print("pop another dir window")
@@ -70,30 +72,49 @@ class ItemEntry(tk.Frame):
 def pop_menu(tkparent, path, posx, posy):
     print("making menu at " + path)
     entries = []
-    for file_entry in (os.scandir(path=path)): # read folder contents
-        print(file_entry.name)
-        if not file_entry.name.startswith('.'): # hide dotfiles
-            if file_entry.is_dir():
-                entryname = file_entry.name + " >"
-                entrytype = "dir"
-            else:
-                entryname = file_entry.name
-                entrytype = "file"
-            corners = {
-                'nw': (posx,posy+len(entries)*entry_height),
-                'ne': (posx+boxwidth,posy+len(entries)*entry_height),
-                # 'se': (posx+boxwidth,posy+entry_height+len(entries)*entry_height), # unnecessary?
-                # 'sw': (posx,posy+entry_height+len(entries)*entry_height)           #
-            }
-            tampa = ItemEntry(tkparent, entryname, entrytype, file_entry.path, corners)
-            entries.append(tampa)
-            tampa.pack()
+    try:
+        dir_contents = os.scandir(path=path)
+        for file_entry in (dir_contents): # read folder contents
+            if not file_entry.name.startswith('.'): # hide dotfiles
+                if file_entry.is_dir():
+                    entryname = file_entry.name + " >"
+                    entrytype = "dir"
+                else:
+                    entryname = file_entry.name
+                    entrytype = "file"
+                corners = {
+                    'nw': (posx,posy+len(entries)*entry_height),
+                    'ne': (posx+boxwidth,posy+len(entries)*entry_height),
+                    # 'se': (posx+boxwidth,posy+entry_height+len(entries)*entry_height), # unnecessary?
+                    # 'sw': (posx,posy+entry_height+len(entries)*entry_height)           #
+                }
+                tampa = ItemEntry(tkparent, entryname, entrytype, file_entry.path, corners)
+                entries.append(tampa)
+                tampa.pack()
+    except:
+        print("can't open")
+    
     boxheight = len(entries)*entry_height
     tkparent.geometry(str(boxwidth) + "x" + str(boxheight) + "+" + str(posx) + "+" + str(posy))#("%dx%d+%d+%d", %())
     tkparent.configure(bg=background_c)
+    tkparent.bind("<Button-3>", on_rightclick)
 
+    menus.append(tkparent)
+
+def kill_last_menu():
+    menus.pop().destroy()
+
+def quit():
+    for menu in menus:
+        menu.destroy()
+    exit()
+
+def on_rightclick(self):
+    kill_last_menu()
+menus = [] # build list of submenus to keep track and manage
 root = tk.Tk()
 pop_menu(root, initpath, pos[0], pos[1])
+root.bind("<Button-3>", on_rightclick)
 # undecorate
 # root.overrideredirect(True)
 
